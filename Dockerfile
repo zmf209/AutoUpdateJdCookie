@@ -1,24 +1,27 @@
-# 使用官方 Python 3.10.14 基础镜像
-FROM python:3.10.14-slim
+FROM python:3.10-slim-bullseye
 
-# 设置工作目录
 WORKDIR /app
 
-# 复制 requirements.txt 并安装依赖
 COPY requirements.txt .
 
-# 安装依赖
-RUN pip install --no-cache-dir -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/
-RUN playwright install chromium
-RUN playwright install-deps
+# 安装 Python 依赖 + Chromium 最小运行依赖
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      # Chromium 运行必要库
+      libnss3 libx11-6 libx11-xcb1 libxcb1 libxcomposite1 libxcursor1 \
+      libxdamage1 libxext6 libxfixes3 libxi6 libxrandr2 libxrender1 \
+      libxss1 libxtst6 libglib2.0-0 libgtk-3-0 libdrm2 libdbus-1-3 \
+      libgbm1 libxshmfence1 libasound2 \
+      # 时区（可选）
+      tzdata \
+    && pip install --no-cache-dir -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/ \
+    && playwright install chromium \
+    && ln -snf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
+    && echo "Asia/Shanghai" > /etc/timezone \
+    && apt-get purge -y --auto-remove tzdata \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-
-# 时区
-RUN apt-get install -y tzdata
-ENV TZ=Asia/Shanghai
-RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
-# 复制应用文件
 COPY . .
 
-# 定义启动命令，运行 main.py
+# 默认启动常驻进程
 CMD ["python", "schedule_main.py"]
